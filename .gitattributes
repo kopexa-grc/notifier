@@ -1,0 +1,2 @@
+*.go linguist-detectable=true text eol=lf
+*.html linguist-detectable=false

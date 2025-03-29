@@ -1,0 +1,55 @@
+# Copyright (c) Kopexa GmbH
+# SPDX-License-Identifier: BUSL-1.1
+version: "2"
+run:
+  timeout: 10m
+  allow-parallel-runners: true
+
+
+linters:
+  exclusions:
+    paths:
+      - internal/store/ent
+      - internal/check/checkfakes
+      - internal/services/space/spacefakes
+      - internal/services/surveys/surveysfakes
+      - '(.+)_test\.go'
+    rules:
+      - path: "api/*"
+        linters:
+          - lll
+      - path: "internal/*"
+        linters:
+          - dupl
+          - lll
+  enable:
+    #- dupl
+    #- errcheck
+    - copyloopvar
+    #- goconst
+    #- gocyclo
+    - govet
+    - ineffassign
+    #- misspell
+    #- nakedret
+    - prealloc
+    #- staticcheck
+    #- unconvert
+    #- unparam
+    #- unused
+
+output:
+  show-stats: true
+
+# formatters:
+#   enable:
+#     - gofmt
+#     - goimports
+#   exclusions:
+#     generated: lax
+#     paths:
+#       - internal/store/ent
+#       - internal/check/checkfakes
+#       - internal/services/space/spacefakes
+#       - internal/services/surveys/surveysfakes
+#       - '(.+)_test\.go'

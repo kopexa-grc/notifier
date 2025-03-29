@@ -1,0 +1,28 @@
+# Compiled Object files, Static and Dynamic libs (Shared Objects)
+*.o
+*.a
+*.so
+
+# Folders
+_obj
+_test
+
+# IntelliJ
+.idea
+# Goland's output filename can not be set manually
+/go_build_*
+
+# MS VSCode
+.vscode
+__debug_bin*
+
+*.exe
+*.test
+*.prof
+
+*coverage.out
+coverage.all
+cpu.out
+
+*.db
+*.log

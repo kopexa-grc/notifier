@@ -1,0 +1,4 @@
+{
+    "go.testTimeout": "60s",
+    "makefile.configureOnOpen": false
+}
