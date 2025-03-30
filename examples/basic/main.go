@@ -108,7 +108,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error creating file provider: %v", err)
 	}
-	defer fileProvider.Close()
+	defer func() {
+		_ = fileProvider.Close()
+	}()
 
 	// Create notifier service with both providers
 	service, err := notifier.NewService(

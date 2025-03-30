@@ -38,10 +38,8 @@ type NotifierConfig struct {
 	// Data retention
 	RetentionDays int
 	// OpenTelemetry
-	TracerName         string
-	MeterName          string
-	PropagateContext   bool
-	EnabledDetailTrace bool
+	TracerName string
+	MeterName  string
 }
 
 // EventStats tracks analytics data for event types
@@ -479,7 +477,7 @@ func (n *Notifier) Notify(ctx context.Context, event BaseEvent) {
 
 // processEvent handles the actual event processing
 func (n *Notifier) processEvent(ctx context.Context, event BaseEvent, startTime time.Time) {
-	ctx, span := n.tracer.Start(ctx, "Notifier.processEvent")
+	_, span := n.tracer.Start(ctx, "Notifier.processEvent")
 	defer span.End()
 
 	eventType := event.GetType()
@@ -489,12 +487,6 @@ func (n *Notifier) processEvent(ctx context.Context, event BaseEvent, startTime 
 		// Create a new context with a new span for the async work
 		asyncCtx, asyncSpan := n.tracer.Start(context.Background(), "Notifier.processEvent.async")
 		defer asyncSpan.End()
-
-		// Copy trace context from original request if configured
-		if n.config.PropagateContext {
-			// This would involve propagating trace context from ctx to asyncCtx
-			// Using otel context propagation
-		}
 
 		n.mu.RLock()
 		providers := make([]Provider, len(n.providers))
