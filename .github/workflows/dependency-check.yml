@@ -22,19 +22,11 @@ jobs:
           go-version-file: 'go.mod'
           cache: true
 
-      - name: Install Nancy
-        run: go install github.com/sonatype-nexus-community/nancy@latest
+      - name: WriteGoList
+        run: go list -json -m all > go.list
 
-      - name: Run Nancy vulnerability scan
-        run: |
-          go list -json -m all | nancy sleuth --output json > nancy-results.json
-          cat nancy-results.json | jq '.'
-
-      - name: Upload Nancy results
-        uses: actions/upload-artifact@v4
-        with:
-          name: nancy-vulnerability-report
-          path: nancy-results.json
+      - name: Nancy
+        uses: sonatype-nexus-community/nancy-github-action@main
 
   osvscanner:
     name: OSV Vulnerability Scanner
