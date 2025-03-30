@@ -1,7 +1,6 @@
 module github.com/kopexa-grc/notifier
 
 go 1.24.0
-
 require (
 	github.com/centrifugal/centrifuge v0.35.0
 	github.com/rs/zerolog v1.34.0
@@ -40,7 +39,7 @@ require (
 	github.com/prometheus/client_model v0.6.1 // indirect
 	github.com/prometheus/common v0.62.0 // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect
-	github.com/redis/go-redis/v9 v9.7.0 // indirect
+	github.com/redis/go-redis/v9 v9.7.3 // indirect
 	github.com/redis/rueidis v1.0.56 // indirect
 	github.com/redis/rueidis/rueidiscompat v1.0.56 // indirect
 	github.com/segmentio/asm v1.2.0 // indirect
