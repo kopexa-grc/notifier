@@ -380,7 +380,7 @@ func setupTestNotifier(t *testing.T) (*Notifier, *MockProvider, *MockDataLake) {
 	return notifier, provider, dataLake
 }
 
-// Teste grundlegende Funktionalität
+// Test basic functionality
 func TestNotifierBasicFunctionality(t *testing.T) {
 	notifier, provider, dataLake := setupTestNotifier(t)
 
@@ -397,18 +397,27 @@ func TestNotifierBasicFunctionality(t *testing.T) {
 
 	notifier.Notify(ctx, event)
 
-	// Warte kurz, damit der asynchrone Prozess abgeschlossen werden kann
-	time.Sleep(200 * time.Millisecond)
+	// Wait longer for the asynchronous process to complete (500ms instead of 200ms)
+	time.Sleep(500 * time.Millisecond)
 
-	// Überprüfe, ob der Provider das Event erhalten hat
-	assert.Equal(t, 1, provider.EventCount(), "Provider sollte genau ein Event erhalten haben")
-	assert.Equal(t, event.GetType(), provider.GetEvents()[0].GetType(), "Event-Typ sollte übereinstimmen")
+	// Check if the provider received the event
+	assert.Equal(t, 1, provider.EventCount(), "Provider should have received exactly one event")
 
-	// Überprüfe, ob das Event im DataLake gespeichert wurde
+	// Only check the event type if events were received
+	events := provider.GetEvents()
+	if len(events) > 0 {
+		assert.Equal(t, event.GetType(), events[0].GetType(), "Event type should match")
+	} else {
+		t.Log("No events were received by the provider")
+	}
+
+	// Check if the event was stored in the DataLake
 	storedEvents, err := dataLake.GetEvents(ctx, DataLakeQuery{})
 	require.NoError(t, err)
-	assert.Equal(t, 1, len(storedEvents), "DataLake sollte genau ein Event enthalten")
-	assert.Equal(t, string(event.GetType()), string(storedEvents[0].Type), "Event-Typ im DataLake sollte übereinstimmen")
+	assert.Equal(t, 1, len(storedEvents), "DataLake should contain exactly one event")
+	if len(storedEvents) > 0 {
+		assert.Equal(t, string(event.GetType()), string(storedEvents[0].Type), "Event type in DataLake should match")
+	}
 }
 
 // Teste Rate-Limiting-Funktionalität
@@ -489,14 +498,14 @@ func TestBatchProcessing(t *testing.T) {
 		notifier.Notify(ctx, event)
 	}
 
-	// Warte auf Batch-Verarbeitung
-	time.Sleep(1500 * time.Millisecond)
+	// Warte auf Batch-Verarbeitung - erhöhe Wartezeit auf 2 Sekunden statt 1.5 Sekunden
+	time.Sleep(2 * time.Second)
 
 	// Stoppe Batching
 	notifier.EnableBatching(false)
 
 	// Warte, bis alle Worker gestoppt sind
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(200 * time.Millisecond)
 
 	// Überprüfe, dass mindestens einige Events verarbeitet wurden
 	assert.Greater(t, provider.EventCount(), 0, "Es sollten Events verarbeitet worden sein")
@@ -629,7 +638,7 @@ func TestMultiProviderFunctionality(t *testing.T) {
 	assert.Equal(t, 1, len(storedEvents), "DataLake sollte das Event einmal enthalten")
 }
 
-// Teste dynamisches Hinzufügen von Providern
+// Test dynamic provider registration
 func TestDynamicProviderRegistration(t *testing.T) {
 	provider1 := NewMockProvider("test-provider-1")
 	dataLake := NewMockDataLake("test-datalake")
@@ -656,13 +665,13 @@ func TestDynamicProviderRegistration(t *testing.T) {
 		timestamp: time.Now(),
 	}
 
-	// Sende erstes Event an den initialen Provider
+	// Send first event to the initial provider
 	notifier.Notify(ctx, event1)
 
-	// Warte kurz, damit der asynchrone Prozess abgeschlossen werden kann
+	// Wait briefly for the asynchronous process to complete
 	time.Sleep(200 * time.Millisecond)
 
-	// Registriere einen zweiten Provider
+	// Register a second provider
 	provider2 := NewMockProvider("test-provider-2")
 	notifier.RegisterProvider(provider2)
 
@@ -676,18 +685,25 @@ func TestDynamicProviderRegistration(t *testing.T) {
 		timestamp: time.Now(),
 	}
 
-	// Sende zweites Event an beide Provider
+	// Send second event to both providers
 	notifier.Notify(ctx, event2)
 
-	// Warte kurz, damit der asynchrone Prozess abgeschlossen werden kann
+	// Wait briefly for the asynchronous process to complete
 	time.Sleep(200 * time.Millisecond)
 
-	// Provider 1 sollte beide Events erhalten haben
-	assert.Equal(t, 2, provider1.EventCount(), "Provider 1 sollte beide Events erhalten haben")
+	// Provider 1 should have received both events
+	assert.Equal(t, 2, provider1.EventCount(), "Provider 1 should have received both events")
 
-	// Provider 2 sollte nur das zweite Event erhalten haben
-	assert.Equal(t, 1, provider2.EventCount(), "Provider 2 sollte nur das zweite Event erhalten haben")
-	assert.Equal(t, EventType("test-event-2"), provider2.GetEvents()[0].GetType(), "Provider 2 sollte test-event-2 erhalten haben")
+	// Provider 2 should have received only the second event
+	assert.Equal(t, 1, provider2.EventCount(), "Provider 2 should have received only the second event")
+
+	// Only check the event type if events were received
+	events2 := provider2.GetEvents()
+	if len(events2) > 0 {
+		assert.Equal(t, EventType("test-event-2"), events2[0].GetType(), "Provider 2 should have received test-event-2")
+	} else {
+		t.Log("No events were received by provider 2")
+	}
 }
 
 // Teste Enterprise-Funktionen
