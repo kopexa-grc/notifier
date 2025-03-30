@@ -1,0 +1,65 @@
+name: Dependency Check
+
+on:
+  schedule:
+    - cron: '0 8 * * 1' # Jede Woche am Montag um 8 Uhr UTC
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  vulnerability-scan:
+    name: Check vulnerabilities with Nancy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      - name: Install Nancy
+        run: go install github.com/sonatype-nexus-community/nancy@latest
+
+      - name: Run Nancy vulnerability scan
+        run: |
+          go list -json -m all | nancy sleuth --output json > nancy-results.json
+          cat nancy-results.json | jq '.'
+
+      - name: Upload Nancy results
+        uses: actions/upload-artifact@v4
+        with:
+          name: nancy-vulnerability-report
+          path: nancy-results.json
+
+  osvscanner:
+    name: OSV Vulnerability Scanner
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      - name: Install osv-scanner
+        run: go install github.com/google/osv-scanner/cmd/osv-scanner@latest
+
+      - name: Run OSV Scanner
+        run: osv-scanner -r . --json > osv-results.json
+
+      - name: Display results
+        run: cat osv-results.json | jq '.'
+
+      - name: Upload OSV Scanner results
+        uses: actions/upload-artifact@v4
+        with:
+          name: osv-vulnerability-report
+          path: osv-results.json 
