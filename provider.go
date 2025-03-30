@@ -619,7 +619,7 @@ func (n *Notifier) StartBatchProcessing() {
 
 // StopBatchProcessing stops all batch processing workers
 func (n *Notifier) StopBatchProcessing() {
-	if !n.batching.enabled {
+	if !n.batching.enabled || n.batching.stopChan == nil {
 		return
 	}
 
@@ -640,6 +640,9 @@ func (n *Notifier) StopBatchProcessing() {
 	case <-time.After(10 * time.Second):
 		log.Warn().Msg("Timeout waiting for batch workers to stop")
 	}
+
+	// Reset channels for future use
+	n.batching.stopChan = nil
 }
 
 // batchWorker processes batches of events
@@ -770,6 +773,14 @@ func (n *Notifier) EnableBatching(enabled bool) {
 
 	// If currently disabled and being enabled
 	if !n.batching.enabled && enabled {
+		// Initialize channels if they don't exist yet
+		if n.batching.batchChan == nil {
+			n.batching.batchChan = make(chan *batchItem, n.batching.size*n.batching.workers*2)
+		}
+		if n.batching.stopChan == nil {
+			n.batching.stopChan = make(chan struct{})
+		}
+
 		n.batching.enabled = true
 		n.StartBatchProcessing()
 	} else if n.batching.enabled && !enabled {
