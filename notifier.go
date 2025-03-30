@@ -9,13 +9,14 @@ import (
 	"sync"
 
 	"github.com/rs/zerolog/log"
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
 )
 
-// ResilientNotifier erweitert den Notifier um Resilienz-Mechanismen
+// ResilientNotifier extends the Notifier with resilience mechanisms
 type ResilientNotifier struct {
 	config             NotifierConfig
 	resilienceConfig   ResilienceConfig
@@ -28,7 +29,7 @@ type ResilientNotifier struct {
 	meter              metric.Meter
 }
 
-// NewResilientNotifier erstellt einen neuen Notifier mit Resilienz-Mechanismen
+// NewResilientNotifier creates a new Notifier with resilience mechanisms
 func NewResilientNotifier(config NotifierConfig, resilienceConfig ResilienceConfig, tracer trace.Tracer, meter metric.Meter, providers ...Provider) (*ResilientNotifier, error) {
 	// Validate configurations
 	validator := NewConfigValidator()
@@ -41,6 +42,15 @@ func NewResilientNotifier(config NotifierConfig, resilienceConfig ResilienceConf
 		return nil, fmt.Errorf("invalid configuration: %s", errorMessages)
 	}
 
+	// If tracer or meter are nil, use OpenTelemetry defaults
+	if tracer == nil {
+		tracer = otel.Tracer("github.com/kopexa-grc/notifier")
+	}
+
+	if meter == nil {
+		meter = otel.Meter("github.com/kopexa-grc/notifier")
+	}
+
 	rn := &ResilientNotifier{
 		config:             config,
 		resilienceConfig:   resilienceConfig,
@@ -50,12 +60,12 @@ func NewResilientNotifier(config NotifierConfig, resilienceConfig ResilienceConf
 		meter:              meter,
 	}
 
-	// Erstelle Retry-Manager, wenn aktiviert
+	// Create Retry Manager if enabled
 	if resilienceConfig.RetryEnabled {
 		rn.retryManager = NewRetryManager(resilienceConfig, tracer, meter)
 	}
 
-	// Umhülle alle Provider mit Circuit Breaker
+	// Wrap all providers with Circuit Breaker
 	for _, provider := range providers {
 		rn.RegisterProvider(provider)
 	}
@@ -63,15 +73,15 @@ func NewResilientNotifier(config NotifierConfig, resilienceConfig ResilienceConf
 	return rn, nil
 }
 
-// RegisterProvider registriert einen Provider mit Resilienz-Mechanismen
+// RegisterProvider registers a provider with resilience mechanisms
 func (rn *ResilientNotifier) RegisterProvider(provider Provider) {
 	rn.mu.Lock()
 	defer rn.mu.Unlock()
 
-	// Füge zum Original-Provider-Array hinzu
+	// Add to original provider array
 	rn.originalProviders = append(rn.originalProviders, provider)
 
-	// Erstelle Circuit Breaker für den Provider
+	// Create Circuit Breaker for the provider
 	if rn.resilienceConfig.CircuitBreakerEnabled {
 		cb := NewGoBreakerWrapper(
 			provider.Name(),
@@ -89,13 +99,13 @@ func (rn *ResilientNotifier) RegisterProvider(provider Provider) {
 			Msg(LogProviderWithCircuitBreaker)
 	}
 
-	// Registriere beim Retry-Manager
+	// Register with Retry Manager
 	if rn.resilienceConfig.RetryEnabled && rn.retryManager != nil {
-		// Wenn der Provider mit Circuit Breaker umhüllt ist, registriere diesen
+		// If the provider is wrapped with Circuit Breaker, register that
 		if rn.resilienceConfig.CircuitBreakerEnabled {
 			rn.retryManager.RegisterProvider(rn.resilientProviders[provider.Name()])
 		} else {
-			// Sonst registriere den Original-Provider
+			// Otherwise register the original provider
 			rn.retryManager.RegisterProvider(provider)
 		}
 
@@ -106,11 +116,11 @@ func (rn *ResilientNotifier) RegisterProvider(provider Provider) {
 	}
 }
 
-// SetDataLake setzt den DataLake für persistente Speicherung
+// SetDataLake sets the DataLake for persistent storage
 func (rn *ResilientNotifier) SetDataLake(dataLake DataLake) {
 	rn.dataLake = dataLake
 
-	// Setze auch im Retry-Manager, wenn aktiv
+	// Also set in Retry Manager if active
 	if rn.resilienceConfig.RetryEnabled && rn.retryManager != nil {
 		rn.retryManager.SetDataLake(dataLake)
 	}
@@ -120,30 +130,30 @@ func (rn *ResilientNotifier) SetDataLake(dataLake DataLake) {
 		Msg("DataLake configured for resilient notification")
 }
 
-// Start startet alle Hintergrund-Worker
+// Start starts all background workers
 func (rn *ResilientNotifier) Start() {
-	// Starte den Retry-Manager, wenn aktiviert
+	// Start the Retry Manager if enabled
 	if rn.resilienceConfig.RetryEnabled && rn.retryManager != nil {
 		rn.retryManager.Start()
 		log.Info().Msg("Retry manager started")
 	}
 }
 
-// Stop stoppt alle Hintergrund-Worker
+// Stop stops all background workers
 func (rn *ResilientNotifier) Stop() {
-	// Stoppe den Retry-Manager, wenn aktiviert
+	// Stop the Retry Manager if enabled
 	if rn.resilienceConfig.RetryEnabled && rn.retryManager != nil {
 		rn.retryManager.Stop()
 		log.Info().Msg("Retry manager stopped")
 	}
 }
 
-// Notify sendet ein Event an alle registrierten Provider
+// Notify sends an event to all registered providers
 func (rn *ResilientNotifier) Notify(ctx context.Context, event BaseEvent) {
 	eventType := event.GetType()
 	tenant := event.GetTenant()
 
-	// Erstelle einen Span für die Benachrichtigung
+	// Create a span for the notification
 	ctx, span := rn.tracer.Start(ctx, "ResilientNotifier.Notify")
 	defer span.End()
 
@@ -153,9 +163,9 @@ func (rn *ResilientNotifier) Notify(ctx context.Context, event BaseEvent) {
 		attribute.String("tenant.space", tenant.SpaceID),
 	)
 
-	// Datenlake-Speicherung für Audit/Historie
+	// Data lake storage for audit/history
 	if rn.dataLake != nil {
-		// Hier könnte auch ein DataLake mit Retry-Mechanismus umhüllt werden
+		// A DataLake with retry mechanism could also be wrapped here
 		if err := rn.dataLake.Store(ctx, event); err != nil {
 			log.Error().
 				Err(err).
@@ -165,7 +175,7 @@ func (rn *ResilientNotifier) Notify(ctx context.Context, event BaseEvent) {
 		}
 	}
 
-	// Lokale Funktion für die Verarbeitung einzelner Provider
+	// Local function for processing individual providers
 	sendEvent := func(ctx context.Context, providerName string, sendFunc func(context.Context, BaseEvent) error, spanName string, extraAttrs ...attribute.KeyValue) {
 		providerCtx, providerSpan := rn.tracer.Start(ctx, spanName,
 			trace.WithAttributes(append([]attribute.KeyValue{
@@ -186,7 +196,7 @@ func (rn *ResilientNotifier) Notify(ctx context.Context, event BaseEvent) {
 			providerSpan.RecordError(err)
 			providerSpan.SetStatus(codes.Error, err.Error())
 
-			// Füge für erneute Versuche hinzu, wenn Retry aktiviert ist
+			// Add for retry attempts if retry is enabled
 			if rn.resilienceConfig.RetryEnabled && rn.retryManager != nil {
 				rn.retryManager.AddPendingEvent(event, providerName, 0)
 			}
@@ -195,7 +205,7 @@ func (rn *ResilientNotifier) Notify(ctx context.Context, event BaseEvent) {
 		}
 	}
 
-	// Verarbeitung basierend auf Circuit Breaker Konfiguration
+	// Processing based on Circuit Breaker configuration
 	if rn.resilienceConfig.CircuitBreakerEnabled {
 		rn.mu.RLock()
 		providers := make([]*ProviderWithGoBreakerWrapper, 0, len(rn.resilientProviders))
@@ -213,7 +223,7 @@ func (rn *ResilientNotifier) Notify(ctx context.Context, event BaseEvent) {
 			)
 		}
 	} else {
-		// Ohne Circuit Breaker
+		// Without Circuit Breaker
 		rn.mu.RLock()
 		providers := make([]Provider, len(rn.originalProviders))
 		copy(providers, rn.originalProviders)
@@ -226,7 +236,7 @@ func (rn *ResilientNotifier) Notify(ctx context.Context, event BaseEvent) {
 	}
 }
 
-// GetCircuitBreakerStatus gibt einen Statusbericht über die Circuit Breaker zurück
+// GetCircuitBreakerStatus returns a status report about the Circuit Breaker
 func (rn *ResilientNotifier) GetCircuitBreakerStatus() map[string]string {
 	if !rn.resilienceConfig.CircuitBreakerEnabled {
 		return map[string]string{
@@ -244,7 +254,7 @@ func (rn *ResilientNotifier) GetCircuitBreakerStatus() map[string]string {
 	return status
 }
 
-// GetRetryStatus gibt einen Statusbericht über die Retry-Warteschlange zurück
+// GetRetryStatus returns a status report about the Retry queue
 func (rn *ResilientNotifier) GetRetryStatus() map[string]interface{} {
 	if !rn.resilienceConfig.RetryEnabled || rn.retryManager == nil {
 		return map[string]interface{}{"enabled": false}
@@ -259,7 +269,7 @@ func (rn *ResilientNotifier) GetRetryStatus() map[string]interface{} {
 	return result
 }
 
-// ResetCircuitBreaker setzt einen Circuit Breaker für einen bestimmten Provider zurück
+// ResetCircuitBreaker resets a Circuit Breaker for a specific provider
 func (rn *ResilientNotifier) ResetCircuitBreaker(providerName string) bool {
 	if !rn.resilienceConfig.CircuitBreakerEnabled {
 		return false
@@ -277,7 +287,7 @@ func (rn *ResilientNotifier) ResetCircuitBreaker(providerName string) bool {
 	return true
 }
 
-// ResetAllCircuitBreakers setzt alle Circuit Breaker zurück
+// ResetAllCircuitBreakers resets all Circuit Breakers
 func (rn *ResilientNotifier) ResetAllCircuitBreakers() {
 	if !rn.resilienceConfig.CircuitBreakerEnabled {
 		return
