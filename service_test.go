@@ -177,16 +177,12 @@ type TestCustomPayload struct {
 // TestCreateEvent prüft, ob die CreateEvent-Methode korrekt ein BaseEvent zurückgibt
 func TestCreateEvent(t *testing.T) {
 	// Service without DataLake
-	config := ServiceConfig{
-		CentrifugeNode:      nil,
-		Datalake:            nil,
-		MaxEventsPerMinute:  100,
-		MaxEventsPerHour:    1000,
-		BatchSize:           10,
-		BatchTimeoutSeconds: 30,
-		RetentionDays:       90,
-	}
-	service, err := NewService(config)
+	service, err := NewService(
+		WithMaxEventsPerMinute(100),
+		WithBatchSize(10),
+		WithBatchTimeoutSeconds(30),
+		WithRetentionDays(90),
+	)
 	assert.NoError(t, err)
 
 	// Create custom payload
@@ -218,14 +214,11 @@ func TestNotifierWithDataLake(t *testing.T) {
 	testDataLake := NewTestDataLake("test_datalake")
 
 	// Create service with test DataLake
-	config := ServiceConfig{
-		CentrifugeNode:     nil,
-		Datalake:           testDataLake,
-		MaxEventsPerMinute: 100,
-		MaxEventsPerHour:   1000,
-		BatchSize:          10,
-	}
-	service, err := NewService(config)
+	service, err := NewService(
+		WithDatalake(testDataLake),
+		WithMaxEventsPerMinute(100),
+		WithBatchSize(10),
+	)
 	assert.NoError(t, err)
 
 	// Send notification
@@ -258,10 +251,7 @@ func TestNotifierWithDataLake(t *testing.T) {
 // TestNotifierWithoutDataLake testet das Verhalten ohne DataLake
 func TestNotifierWithoutDataLake(t *testing.T) {
 	// Service ohne DataLake erstellen
-	service, err := NewService(ServiceConfig{
-		CentrifugeNode: nil,
-		Datalake:       nil,
-	})
+	service, err := NewService()
 	assert.NoError(t, err)
 
 	// Benachrichtigung senden (sollte keinen Fehler verursachen)
@@ -292,11 +282,7 @@ func TestNotifierWithoutDataLake(t *testing.T) {
 // TestEventStats tests the event analytics tracking
 func TestEventStats(t *testing.T) {
 	// Create service with default configuration
-	config := ServiceConfig{
-		CentrifugeNode: nil,
-		Datalake:       nil,
-	}
-	service, err := NewService(config)
+	service, err := NewService()
 	assert.NoError(t, err)
 
 	// Send multiple notifications
@@ -325,25 +311,22 @@ func TestEventStats(t *testing.T) {
 func TestRateLimiting(t *testing.T) {
 	// Create service with low rate limits
 	testDataLake := NewTestDataLake("test_datalake")
-	config := ServiceConfig{
-		CentrifugeNode:            nil,
-		Datalake:                  testDataLake,
-		MaxEventsPerMinute:        3, // Set a very low limit for testing
-		MaxEventsPerHour:          10,
-		BatchSize:                 10,
-		BatchTimeoutSeconds:       1,
-		RetentionDays:             DefaultRetentionDays,
-		CircuitBreakerEnabled:     false,
-		CircuitBreakerMaxFailures: 5,
-		CircuitBreakerTimeoutSec:  60,
-		RetryEnabled:              false,
-		MaxRetries:                3,
-		RetryInitialDelaySec:      1,
-		RetryMaxDelaySec:          30,
-		RetryBackoffFactor:        2.0,
-		PersistFailedEvents:       false,
-	}
-	service, err := NewService(config)
+	service, err := NewService(
+		WithDatalake(testDataLake),
+		WithMaxEventsPerMinute(3), // Set a very low limit for testing
+		WithBatchSize(10),
+		WithBatchTimeoutSeconds(1),
+		WithRetentionDays(DefaultRetentionDays),
+		WithCircuitBreakerEnabled(false),
+		WithCircuitBreakerMaxFailures(5),
+		WithCircuitBreakerTimeoutSec(60),
+		WithRetryEnabled(false),
+		WithMaxRetries(3),
+		WithRetryInitialDelaySec(1),
+		WithRetryMaxDelaySec(30),
+		WithRetryBackoffFactor(2.0),
+		WithPersistFailedEvents(false),
+	)
 	assert.NoError(t, err)
 
 	// Wait for the notifier to initialize
@@ -384,5 +367,5 @@ func TestRateLimiting(t *testing.T) {
 
 	// Verify rate limiting was applied
 	assert.Greater(t, len(events), 0, "At least some events should be stored")
-	assert.LessOrEqual(t, len(events), config.MaxEventsPerMinute+2, "Rate limiting should prevent storing all events")
+	assert.LessOrEqual(t, len(events), 5, "Rate limiting should prevent storing all events")
 }

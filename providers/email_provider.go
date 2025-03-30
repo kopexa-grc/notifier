@@ -6,6 +6,7 @@ package notifier
 import (
 	"context"
 
+	"github.com/kopexa-grc/notifier"
 	"github.com/rs/zerolog/log"
 )
 
@@ -27,7 +28,7 @@ func (e *EmailProvider) Name() string {
 }
 
 // Send sends an email notification
-func (e *EmailProvider) Send(ctx context.Context, event BaseEvent) error {
+func (e *EmailProvider) Send(ctx context.Context, event notifier.BaseEvent) error {
 	// If no user IDs are specified, don't send a notification
 	userIDs := event.GetUserIDs()
 	if len(userIDs) == 0 {

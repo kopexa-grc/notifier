@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/centrifugal/centrifuge"
+	"github.com/kopexa-grc/notifier"
 	"github.com/rs/zerolog/log"
 )
 
@@ -31,7 +32,7 @@ func (c *CentrifugeProvider) Name() string {
 }
 
 // Send sends a notification through Centrifuge
-func (c *CentrifugeProvider) Send(ctx context.Context, event BaseEvent) error {
+func (c *CentrifugeProvider) Send(ctx context.Context, event notifier.BaseEvent) error {
 	// If no user IDs are specified, don't send a notification
 	userIDs := event.GetUserIDs()
 	if len(userIDs) == 0 {

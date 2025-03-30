@@ -98,7 +98,6 @@ const (
 	DefaultBatchTimeoutSeconds = 30
 	DefaultRetentionDays       = 90
 	DefaultMaxEventsPerMinute  = 100
-	DefaultMaxEventsPerHour    = 1000
 
 	// Retry defaults
 	DefaultMaxRetries        = 3

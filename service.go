@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/centrifugal/centrifuge"
 	"github.com/rs/zerolog/log"
 	"go.opentelemetry.io/otel"
 )
@@ -19,75 +18,57 @@ type Service struct {
 	resilientNotifier *ResilientNotifier
 }
 
-// ServiceConfig contains the configuration options for the Notifier service
-type ServiceConfig struct {
-	CentrifugeNode *centrifuge.Node
-	// DataLake configuration
-	Datalake DataLake
-	// Enterprise-grade features configuration
-	MaxEventsPerMinute  int
-	MaxEventsPerHour    int
-	BatchSize           int
-	BatchTimeoutSeconds int
-	RetentionDays       int
-	// Resilienz-Mechanismen
-	CircuitBreakerEnabled     bool
-	CircuitBreakerMaxFailures int
-	CircuitBreakerTimeoutSec  int
-	RetryEnabled              bool
-	MaxRetries                int
-	RetryInitialDelaySec      int
-	RetryMaxDelaySec          int
-	RetryBackoffFactor        float64
-	PersistFailedEvents       bool
-}
-
 // NewService creates a new instance of the Notifier service
-func NewService(config ServiceConfig) (*Service, error) {
+func NewService(o ...Option) (*Service, error) {
+	opts := defaultOptions()
+
+	for _, opt := range o {
+		opt(opts)
+	}
+
 	// Create notifier with enterprise configuration
 	notifierConfig := NotifierConfig{
-		MaxEventsPerMinute:  config.MaxEventsPerMinute,
-		MaxEventsPerHour:    config.MaxEventsPerHour,
-		BatchSize:           config.BatchSize,
-		BatchTimeoutSeconds: config.BatchTimeoutSeconds,
-		RetentionDays:       config.RetentionDays,
+		MaxEventsPerMinute:  opts.maxEventsPerMinute,
+		BatchSize:           opts.batchSize,
+		BatchTimeoutSeconds: opts.batchTimeoutSeconds,
+		RetentionDays:       opts.retentionDays,
 	}
 
 	// Erstelle Resilienz-Konfiguration, wenn aktiviert
 	var resilientNotifier *ResilientNotifier
 	var err error
 
-	if config.CircuitBreakerEnabled || config.RetryEnabled {
+	if opts.circuitBreakerEnabled || opts.retryEnabled {
 		// Verwende den resilienten Notifier
 		resilienceConfig := ResilienceConfig{
-			CircuitBreakerEnabled:     config.CircuitBreakerEnabled,
-			CircuitBreakerMaxFailures: config.CircuitBreakerMaxFailures,
-			CircuitBreakerTimeout:     time.Duration(config.CircuitBreakerTimeoutSec) * time.Second,
-			RetryEnabled:              config.RetryEnabled,
-			MaxRetries:                config.MaxRetries,
-			RetryInitialDelay:         time.Duration(config.RetryInitialDelaySec) * time.Second,
-			RetryMaxDelay:             time.Duration(config.RetryMaxDelaySec) * time.Second,
-			RetryBackoffFactor:        config.RetryBackoffFactor,
-			PersistFailedEvents:       config.PersistFailedEvents,
+			CircuitBreakerEnabled:     opts.circuitBreakerEnabled,
+			CircuitBreakerMaxFailures: opts.circuitBreakerMaxFailures,
+			CircuitBreakerTimeout:     time.Duration(opts.circuitBreakerTimeoutSec) * time.Second,
+			RetryEnabled:              opts.retryEnabled,
+			MaxRetries:                opts.maxRetries,
+			RetryInitialDelay:         time.Duration(opts.retryInitialDelaySec) * time.Second,
+			RetryMaxDelay:             time.Duration(opts.retryMaxDelaySec) * time.Second,
+			RetryBackoffFactor:        opts.retryBackoffFactor,
+			PersistFailedEvents:       opts.persistFailedEvents,
 		}
 
 		// Standardwerte setzen, wenn nicht konfiguriert
-		if config.CircuitBreakerEnabled && config.CircuitBreakerMaxFailures <= 0 {
+		if opts.circuitBreakerEnabled && opts.circuitBreakerMaxFailures <= 0 {
 			resilienceConfig.CircuitBreakerMaxFailures = 5
 		}
-		if config.CircuitBreakerEnabled && config.CircuitBreakerTimeoutSec <= 0 {
+		if opts.circuitBreakerEnabled && opts.circuitBreakerTimeoutSec <= 0 {
 			resilienceConfig.CircuitBreakerTimeout = 60 * time.Second
 		}
-		if config.RetryEnabled && config.MaxRetries <= 0 {
+		if opts.retryEnabled && opts.maxRetries <= 0 {
 			resilienceConfig.MaxRetries = 3
 		}
-		if config.RetryEnabled && config.RetryInitialDelaySec <= 0 {
+		if opts.retryEnabled && opts.retryInitialDelaySec <= 0 {
 			resilienceConfig.RetryInitialDelay = 1 * time.Second
 		}
-		if config.RetryEnabled && config.RetryMaxDelaySec <= 0 {
+		if opts.retryEnabled && opts.retryMaxDelaySec <= 0 {
 			resilienceConfig.RetryMaxDelay = 30 * time.Second
 		}
-		if config.RetryEnabled && config.RetryBackoffFactor <= 0 {
+		if opts.retryEnabled && opts.retryBackoffFactor <= 0 {
 			resilienceConfig.RetryBackoffFactor = 2.0
 		}
 
@@ -102,8 +83,8 @@ func NewService(config ServiceConfig) (*Service, error) {
 		}
 
 		log.Info().
-			Bool("circuit_breaker_enabled", config.CircuitBreakerEnabled).
-			Bool("retry_enabled", config.RetryEnabled).
+			Bool("circuit_breaker_enabled", opts.circuitBreakerEnabled).
+			Bool("retry_enabled", opts.retryEnabled).
 			Msg("Resilient notifier created with advanced error handling")
 	}
 
@@ -115,32 +96,20 @@ func NewService(config ServiceConfig) (*Service, error) {
 
 	service := &Service{}
 
-	// Register available providers
-	if config.CentrifugeNode != nil {
-		centrifugeProvider := NewCentrifugeProvider(config.CentrifugeNode)
+	for _, provider := range opts.providers {
 		if resilientNotifier != nil {
-			resilientNotifier.RegisterProvider(centrifugeProvider)
+			resilientNotifier.RegisterProvider(provider)
 		} else {
-			notifier.RegisterProvider(centrifugeProvider)
+			notifier.RegisterProvider(provider)
 		}
-		log.Info().Msg("Centrifuge notification provider registered")
 	}
-
-	// Register email provider (placeholder for actual implementation)
-	emailProvider := NewEmailProvider()
-	if resilientNotifier != nil {
-		resilientNotifier.RegisterProvider(emailProvider)
-	} else {
-		notifier.RegisterProvider(emailProvider)
-	}
-	log.Info().Msg("Email notification provider registered")
 
 	// Configure data lake if enabled
-	if config.Datalake != nil {
+	if opts.datalake != nil {
 		if resilientNotifier != nil {
-			resilientNotifier.SetDataLake(config.Datalake)
+			resilientNotifier.SetDataLake(opts.datalake)
 		} else {
-			notifier.SetDataLake(config.Datalake)
+			notifier.SetDataLake(opts.datalake)
 		}
 		log.Info().Msg("DataLake storage enabled for notifications")
 	}

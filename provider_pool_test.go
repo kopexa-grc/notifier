@@ -135,7 +135,6 @@ func TestNotifierWithPool(t *testing.T) {
 
 	// Create notifier configuration
 	notifierConfig := NotifierConfig{
-		MaxEventsPerMinute:  100,
 		BatchSize:           10,
 		BatchTimeoutSeconds: 1,
 		RetentionDays:       30,

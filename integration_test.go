@@ -235,7 +235,7 @@ func (m *MockDataLake) Name() string {
 func TestIntegration_NotifierWithPool(t *testing.T) {
 	// Test configuration
 	notifierConfig := notifier.NotifierConfig{
-		MaxEventsPerMinute:  100,
+		MaxEventsPerMinute:  100, // Ensure valid value
 		BatchSize:           10,
 		BatchTimeoutSeconds: 1,
 		RetentionDays:       30,
@@ -357,26 +357,22 @@ func TestIntegration_ServiceWithPool(t *testing.T) {
 	// Create DataLake for service
 	dataLake := NewMockDataLake("service-datalake")
 
-	// Create service configuration
-	config := notifier.ServiceConfig{
-		Datalake:                  dataLake,
-		MaxEventsPerMinute:        100,
-		BatchSize:                 10,
-		BatchTimeoutSeconds:       1,
-		RetentionDays:             30,
-		CircuitBreakerEnabled:     true,
-		CircuitBreakerMaxFailures: 3,
-		CircuitBreakerTimeoutSec:  1,
-		RetryEnabled:              true,
-		MaxRetries:                2,
-		RetryInitialDelaySec:      1,
-		RetryMaxDelaySec:          5,
-		RetryBackoffFactor:        2.0,
-		PersistFailedEvents:       true,
-	}
-
-	// Create service
-	service, err := notifier.NewService(config)
+	// Create service with options
+	service, err := notifier.NewService(
+		notifier.WithDatalake(dataLake),
+		notifier.WithBatchSize(10),
+		notifier.WithBatchTimeoutSeconds(1),
+		notifier.WithRetentionDays(30),
+		notifier.WithCircuitBreakerEnabled(true),
+		notifier.WithCircuitBreakerMaxFailures(3),
+		notifier.WithCircuitBreakerTimeoutSec(1),
+		notifier.WithRetryEnabled(true),
+		notifier.WithMaxRetries(2),
+		notifier.WithRetryInitialDelaySec(1),
+		notifier.WithRetryMaxDelaySec(5),
+		notifier.WithRetryBackoffFactor(2.0),
+		notifier.WithPersistFailedEvents(true),
+	)
 	require.NoError(t, err, "Service creation should succeed")
 	require.NotNil(t, service, "Service should not be nil")
 

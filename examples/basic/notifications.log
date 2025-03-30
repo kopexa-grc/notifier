@@ -1,0 +1,3 @@
+[2025-03-30T20:02:02+02:00] Event: info | Org: org-123 | Space:  | Users: [user1 user2 user3] | Payload: {"details":"Important information for all users","message":"This is an organization-wide notification"}
+[2025-03-30T20:02:02+02:00] Event: critical | Org: org-123 | Space: space-789 | Users: [admin1 admin2] | Payload: {"code":"ERR-1234","details":"Immediate attention required","message":"Critical system alert"}
+[2025-03-30T20:02:02+02:00] Event: warning | Org: org-123 | Space: space-456 | Users: [user1 user2] | Payload: {"details":"Warning for a specific space","level":"medium","message":"This is a space-specific warning"}

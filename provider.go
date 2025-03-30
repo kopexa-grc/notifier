@@ -32,7 +32,6 @@ type Provider interface {
 type NotifierConfig struct {
 	// Rate limiting
 	MaxEventsPerMinute int
-	MaxEventsPerHour   int
 	// Batching
 	BatchSize           int
 	BatchTimeoutSeconds int
