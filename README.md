@@ -1,235 +1,216 @@
-# Notifier Service
+# Notifier
 
-Ein hochleistungsfähiger Enterprise-grade Benachrichtigungsdienst, der die zuverlässige Verarbeitung von Ereignissen und Benachrichtigungen in großem Maßstab ermöglicht.
+[![Go Report Card](https://goreportcard.com/badge/github.com/kopexa-grc/notifier)](https://goreportcard.com/report/github.com/kopexa-grc/notifier)
+[![GoDoc](https://godoc.org/github.com/kopexa-grc/notifier?status.svg)](https://godoc.org/github.com/kopexa-grc/notifier)
+[![License](https://img.shields.io/github/license/kopexa-grc/notifier)](https://github.com/kopexa-grc/notifier/blob/main/LICENSE)
+![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/kopexa-grc/notifier/ci.yml?branch=main)
+
+A high-performance, enterprise-grade notification service that enables reliable event processing and notification delivery at scale. Perfect for applications that require robust event handling with advanced resilience mechanisms.
 
 ## Features
 
-* **Multi-Provider-Unterstützung**: Ermöglicht die gleichzeitige Verwendung verschiedener Benachrichtigungskanäle (E-Mail, SMS, Push, etc.) mit einheitlicher Konfiguration.
-* **Batch-Verarbeitung**: Effiziente Bündelung von Ereignissen für optimale Leistung.
-* **Datenhaltung**: Wahlweise persistente Speicherung von Ereignissen in einem Data Lake für Audit-Zwecke und Analyse.
-* **Rate-Limiting**: Schutz vor Überlastung durch intelligente Begrenzung der Ereignisverarbeitung.
-* **Resilienz-Mechanismen**: Circuit Breaker für den Umgang mit fehlerhaften Providern und automatische Wiederholungen für nicht zugestellte Nachrichten.
-* **Multi-Tenant-Fähigkeit**: Isolierte Ressourcenverwaltung für verschiedene Mandanten.
-* **Enterprise-Features**: Umfassende Überwachung, Metriken und Konfigurationsoptionen für anspruchsvolle Unternehmensanforderungen.
+- **Multi-Provider Support**: Send notifications through various channels (email, SMS, push, etc.) with unified configuration
+- **Batch Processing**: Efficiently bundle events for optimal performance and throughput
+- **Data Persistence**: Optional persistent storage of events in a Data Lake for audit purposes and analytics
+- **Rate Limiting**: Protect against overload through intelligent event processing throttling
+- **Resilience Mechanisms**: 
+  - Circuit breaker pattern to handle faulty providers
+  - Automatic retries for undelivered messages with exponential backoff
+- **Multi-Tenant Capability**: Isolated resource management for different tenants
+- **Enterprise Features**: Comprehensive monitoring, metrics, and configuration options
 
-## Architektur
+## Installation
 
-Der Notifier Service ist als Pipeline implementiert, die Ereignisse von verschiedenen Quellen empfängt, diese verarbeitet und an die konfigurierten Provider verteilt. Die Architektur besteht aus folgenden Hauptkomponenten:
-
-1. **Event Receiver**: Nimmt Ereignisse entgegen und leitet sie an den Processor weiter.
-2. **Rate Limiter**: Begrenzt die Anzahl der verarbeiteten Ereignisse pro Zeiteinheit.
-3. **Batch Processor**: Gruppiert Ereignisse für effiziente Verarbeitung.
-4. **Provider Manager**: Verwaltet die verschiedenen Benachrichtigungskanäle.
-5. **Resilience Layer**: Implementiert Circuit Breaker und Retry-Mechanismen.
-6. **Data Lake**: Optional für die persistente Speicherung von Ereignissen.
-
-## Rate-Limiting mit golang.org/x/time/rate
-
-Der Notifier verwendet die offizielle Go-Bibliothek `golang.org/x/time/rate` für das Rate-Limiting, um die Anzahl der Ereignisse zu begrenzen, die in einem bestimmten Zeitraum verarbeitet werden können. Dies bietet mehrere Vorteile:
-
-### Vorteile von golang.org/x/time/rate
-
-1. **Community-Wartung**: Als Teil der offiziellen Go-Bibliothek wird der Code aktiv gewartet und aktualisiert.
-2. **Leistungsoptimierung**: Die Implementierung ist auf hohe Leistung und geringe Ressourcennutzung optimiert.
-3. **Reduzierter Wartungsaufwand**: Keine Notwendigkeit, eine eigene Rate-Limiting-Lösung zu pflegen.
-4. **Bessere Dokumentation**: Umfassende Dokumentation und weite Verbreitung in der Community.
-5. **Zusätzliche Funktionen**: Bietet erweiterte Funktionen wie Burstiness und flexible Ratenkonfiguration.
-
-### Konfigurationsoptionen für Rate-Limiting
-
-| Parameter | Beschreibung | Standardwert |
-|-----------|-------------|--------------|
-| `MaxEventsPerMinute` | Maximale Anzahl an Ereignissen pro Minute | 100 |
-
-### Beispiel-Nutzung
-
-```go
-// Erstellen einer Notifier-Konfiguration mit Rate-Limiting
-config := notifier.Config{
-    MaxEventsPerMinute: 60, // 1 Ereignis pro Sekunde
-}
-
-// Erstellen eines neuen Notifier-Service mit der Konfiguration
-n, err := notifier.NewNotifier(config)
-if err != nil {
-    log.Fatal(err)
-}
-
-// Rate-Limit zur Laufzeit anpassen
-n.SetMaxEventsPerMinute(120) // 2 Ereignisse pro Sekunde
+```bash
+go get github.com/kopexa-grc/notifier
 ```
 
-### Fortgeschrittene Nutzung mit golang.org/x/time/rate
+Requires Go 1.20 or later.
 
-Für fortgeschrittene Anwendungsfälle kann die `golang.org/x/time/rate`-Bibliothek direkt verwendet werden:
+## Quick Start
 
 ```go
-import "golang.org/x/time/rate"
+package main
 
-// Erstellen eines neuen Limiters mit 10 Ereignissen pro Sekunde und einem Burst von 30
-limiter := rate.NewLimiter(rate.Limit(10), 30)
+import (
+    "context"
+    "time"
+    
+    "github.com/kopexa-grc/notifier"
+)
 
-// Überprüfen, ob ein Ereignis erlaubt ist
-if limiter.Allow() {
-    // Ereignis verarbeiten
-}
-
-// Alternativ mit Kontext und Timeout
-ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
-defer cancel()
-if err := limiter.Wait(ctx); err == nil {
-    // Ereignis verarbeiten
-} else {
-    // Timeout beim Warten auf Erlaubnis
+func main() {
+    // Create a new notification service with options
+    service, err := notifier.NewService(
+        notifier.WithMaxEventsPerMinute(100),
+        notifier.WithBatchSize(10),
+        notifier.WithCircuitBreakerEnabled(true),
+        notifier.WithRetryEnabled(true),
+    )
+    if err != nil {
+        panic(err)
+    }
+    
+    // Notify organization-wide
+    service.NotifyOrganization(
+        context.Background(),
+        notifier.EventTypeInfo,
+        "Hello World!",
+        "organization-id",
+        []string{"user-1", "user-2"},
+    )
+    
+    // Close the service when done
+    defer service.Close()
 }
 ```
 
-## Resilienz-Mechanismen
+## Architecture
 
-Der Notifier Service implementiert verschiedene Resilienz-Mechanismen, um mit Fehlern und Störungen umzugehen:
+The Notifier Service is implemented as a pipeline that receives events from various sources, processes them, and distributes them to configured providers. The architecture consists of these main components:
 
-### Circuit Breaker
+1. **Event Receiver**: Accepts events and forwards them to the processor
+2. **Rate Limiter**: Limits the number of processed events per time unit
+3. **Batch Processor**: Groups events for efficient processing
+4. **Provider Manager**: Manages different notification channels
+5. **Resilience Layer**: Implements circuit breaker and retry mechanisms
+6. **Data Lake**: Optional persistent storage for events
 
-Schützt das System vor kaskadierenden Ausfällen, indem fehlgeschlagene Provider vorübergehend deaktiviert werden:
-
-```go
-// Circuit Breaker Konfiguration
-config := notifier.Config{
-    CircuitBreakerMaxFailures: 5,
-    CircuitBreakerTimeout: 60, // Sekunden
-}
-```
-
-### Retry-Mechanismus
-
-Automatische Wiederholung fehlgeschlagener Ereignisse mit exponentieller Backoff-Strategie:
-
-```go
-// Retry-Konfiguration
-config := notifier.Config{
-    MaxRetries: 3,
-    RetryInitialInterval: 5,  // Sekunden
-    RetryMaxInterval: 60,     // Sekunden
-    RetryMultiplier: 2.0,     // Exponentieller Faktor
-}
-```
-
-## Fazit
-
-Der Notifier Service bietet eine robuste und skalierbare Lösung für die Ereignisverarbeitung und Benachrichtigung in Unternehmensanwendungen. Durch die Kombination von effizienter Ressourcennutzung, Resilienz-Mechanismen und umfassenden Konfigurationsoptionen eignet sich der Service ideal für kritische Anwendungen mit hohen Anforderungen an Zuverlässigkeit und Durchsatz.
-
-## Resilience Mechanisms
-
-The Notifier Service is equipped with multiple resilience mechanisms to ensure robust and reliable operation even under adverse conditions:
+## Advanced Features
 
 ### Rate Limiting
 
-To prevent overload situations, the Notifier Service utilizes the official Go package `golang.org/x/time/rate` for rate limiting. This mechanism limits the number of events that can be processed per minute, thus protecting both the notifier service and downstream systems.
+Notifier uses Go's official `golang.org/x/time/rate` package for rate limiting to protect your systems from overload:
+
+```go
+// Create a notifier configuration with rate limiting
+config := notifier.NotifierConfig{
+    MaxEventsPerMinute: 60, // 1 event per second
+}
+
+// Adjust rate limit at runtime
+service.SetRateLimits(120, 0) // 2 events per second
+```
 
 ### Circuit Breaker
 
-The Notifier implements the Circuit Breaker pattern using Sony's `github.com/sony/gobreaker/v2` library. This mechanism temporarily interrupts traffic to a provider when a certain number of failures are detected, preventing faulty components from affecting the entire system.
+Protection against cascading failures by temporarily disabling failed providers:
+
+```go
+// Circuit Breaker configuration using options pattern
+service, err := notifier.NewService(
+    notifier.WithCircuitBreakerEnabled(true),
+    notifier.WithCircuitBreakerMaxFailures(5),
+    notifier.WithCircuitBreakerTimeoutSec(60),
+)
+```
 
 The Circuit Breaker operates in three states:
-- **Closed**: Normal operation, requests are allowed through.
-- **Open**: After reaching the failure threshold, all requests are rejected.
-- **Half-open**: After a timeout period, a limited number of test requests are allowed.
-
-Benefits of using Sony's gobreaker:
-- Proven, community-maintained implementation
-- Excellent maintainability and regular updates
-- Advanced features like configurable failure detection logic
-- Type safety through generics in v2
-- Extensive configuration options
+- **Closed**: Normal operation, requests pass through
+- **Open**: After reaching failure threshold, all requests are rejected
+- **Half-open**: After timeout, limited test requests are allowed
 
 ### Retry Mechanism
 
-For temporary failures, the Notifier automatically attempts to resend notifications using an exponential backoff strategy with jitter. This maximizes the probability of delivery during temporary network issues or recipient outages.
+Automatic retry of failed events with exponential backoff strategy:
 
-### DataLake for Undeliverable Events
+```go
+// Configure retry mechanism
+service, err := notifier.NewService(
+    notifier.WithRetryEnabled(true),
+    notifier.WithMaxRetries(3),
+    notifier.WithRetryInitialDelaySec(5),
+    notifier.WithRetryMaxDelaySec(60),
+    notifier.WithRetryBackoffFactor(2.0),
+)
+```
 
-Events that cannot be delivered even after multiple retry attempts are optionally stored in a DataLake to avoid data loss and enable later analysis or manual processing.
+### Data Lake Integration
 
-## Configuration
+Store events for audit, analysis or manual processing:
 
-The Notifier Service can be configured in various ways to adapt it to specific requirements:
+```go
+// Create a custom data lake implementation
+type MyDataLake struct {
+    // implementation details
+}
+
+func (d *MyDataLake) Store(ctx context.Context, event notifier.BaseEvent) error {
+    // Store event implementation
+}
+
+// Additional required methods...
+
+// Add data lake to service
+service, err := notifier.NewService(
+    notifier.WithDatalake(&MyDataLake{}),
+)
+```
+
+## Configuration Options
 
 ### General Configuration
 
-```go
-type NotifierConfig struct {
-    MaxEventsPerMinute  int    // Rate limiting for events per minute
-    BatchSize           int    // Size of event batches for processing
-    BatchTimeoutSeconds int    // Timeout for batch processing in seconds
-    RetentionDays       int    // Retention period for events in the DataLake
-}
-```
+| Option                  | Description                               | Default |
+|-------------------------|-------------------------------------------|---------|
+| MaxEventsPerMinute      | Rate limiting cap                         | 100     |
+| BatchSize               | Number of events per batch                | 10      |
+| BatchTimeoutSeconds     | Timeout for batch processing              | 30      |
+| RetentionDays           | Data retention period in days             | 90      |
 
 ### Resilience Configuration
 
-```go
-type ResilienceConfig struct {
-    // Circuit Breaker configuration (Sony gobreaker)
-    CircuitBreakerEnabled     bool
-    CircuitBreakerMaxFailures int
-    CircuitBreakerTimeout     time.Duration
-    
-    // Retry configuration
-    RetryEnabled       bool
-    MaxRetries         int
-    RetryInitialDelay  time.Duration
-    RetryMaxDelay      time.Duration
-    RetryBackoffFactor float64
-    
-    // Persistence of failed events
-    PersistFailedEvents bool
-}
-```
+| Option                    | Description                               | Default |
+|---------------------------|-------------------------------------------|---------|
+| CircuitBreakerEnabled     | Enables circuit breaker pattern           | false   |
+| CircuitBreakerMaxFailures | Failures before tripping                  | 5       |
+| CircuitBreakerTimeoutSec  | Reset timeout in seconds                  | 60      |
+| RetryEnabled              | Enables retry mechanism                   | false   |
+| MaxRetries                | Maximum retry attempts                    | 3       |
+| RetryInitialDelaySec      | Initial delay between retries (seconds)   | 5       |
+| RetryMaxDelaySec          | Maximum delay between retries (seconds)   | 300     |
+| RetryBackoffFactor        | Exponential backoff multiplier            | 2.0     |
+| PersistFailedEvents       | Store events after max retries            | false   |
 
-## Examples
+## Provider Implementation
 
-### Basic Usage with All Resilience Mechanisms
+Create custom notification providers by implementing the Provider interface:
 
 ```go
-// Create a new notifier with resilience mechanisms
-config := notifier.NotifierConfig{
-    MaxEventsPerMinute: 100,
-    BatchSize: 10,
-    BatchTimeoutSeconds: 5,
-    RetentionDays: 30,
+type CustomProvider struct {
+    // provider fields
 }
 
-resilience := notifier.DefaultResilienceConfig()
-resilience.CircuitBreakerEnabled = true
-resilience.CircuitBreakerMaxFailures = 5
-resilience.RetryEnabled = true
-resilience.MaxRetries = 3
-resilience.PersistFailedEvents = true
-
-// Create a notifier with resilience mechanisms
-ntr := notifier.NewResilientNotifier(
-    config,
-    resilience,
-    tracer,  // OpenTelemetry tracer for tracing
-    meter,   // OpenTelemetry meter for metrics
-    emailProvider, slackProvider, // Providers for different channels
-)
-
-// Start the notifier
-ntr.Start()
-defer ntr.Stop()
-
-// Add a DataLake for persistent storage
-ntr.SetDataLake(myDataLake)
-
-// Send an event
-ctx := context.Background()
-event := &MyEvent{
-    // ... event data
+func (p *CustomProvider) Send(ctx context.Context, event notifier.BaseEvent) error {
+    // Implementation for sending notifications
+    return nil
 }
-ntr.Notify(ctx, event)
+
+func (p *CustomProvider) Name() string {
+    return "custom-provider"
+}
+
+// Register with service
+service.RegisterProvider(&CustomProvider{})
 ```
 
-## Conclusion
+## Contributing
 
-The Notifier Service provides a robust and scalable solution for event notification in large systems. By employing proven libraries like Sony's gobreaker and the official Go rate limiter, reliability is maximized while minimizing maintenance effort. The implemented resilience mechanisms - rate limiting, circuit breaking, retry logic, and persistent storage - make it ideal for critical applications where reliability and fault tolerance are crucial. 
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes using Conventional Commits format
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct and development process.
+
+## License
+
+This project is licensed under the BUSL-1.1 License - see the [LICENSE](LICENSE) file for details.
+
+## Acknowledgments
+
+* Sony's [gobreaker](https://github.com/sony/gobreaker) library for circuit breaker implementation
+* Go's [rate](https://golang.org/x/time/rate) package for rate limiting
