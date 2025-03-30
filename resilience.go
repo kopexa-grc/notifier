@@ -5,8 +5,9 @@ package notifier
 
 import (
 	"context"
+	"crypto/rand"
 	"math"
-	"math/rand"
+	"math/big"
 	"sync"
 	"time"
 
@@ -227,8 +228,16 @@ func (rm *RetryManager) calculateBackoff(retryCount int) time.Duration {
 	// Exponential backoff with jitter
 	backoff := float64(rm.config.RetryInitialDelay) * math.Pow(rm.config.RetryBackoffFactor, float64(retryCount))
 
-	// Add random jitter (±20%)
-	jitter := (rand.Float64()*0.4 - 0.2) * backoff
+	// Add random jitter (±20%) using crypto/rand for better security
+	maxJitter := big.NewInt(4000) // 0-3999
+	randomValue, err := rand.Int(rand.Reader, maxJitter)
+	jitterFactor := 0.0
+	if err == nil {
+		// Convert to float between -0.2 and 0.2
+		jitterFactor = (float64(randomValue.Int64()) / 4000.0 * 0.4) - 0.2
+	}
+
+	jitter := jitterFactor * backoff
 	backoff += jitter
 
 	// Ensure we don't exceed the maximum delay

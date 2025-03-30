@@ -88,7 +88,20 @@ func (w *GoBreakerWrapper) createSettings() gobreaker.Settings {
 		Interval:    0, // Don't clear counts automatically
 		Timeout:     w.timeout,
 		ReadyToTrip: func(counts gobreaker.Counts) bool {
-			return counts.ConsecutiveFailures >= uint32(w.maxFailures)
+			// Safe check: We need to ensure maxFailures is positive,
+			// and that the conversion to uint32 is safe
+			if w.maxFailures <= 0 {
+				return false // Never trip, if maxFailures is not positive
+			}
+
+			// The conversion is only safe if maxFailures is within the uint32 range
+			if w.maxFailures > 0 && w.maxFailures <= (1<<32-1) {
+				// #nosec G115 - We have already ensured that maxFailures is within the valid uint32 range
+				return counts.ConsecutiveFailures >= uint32(w.maxFailures)
+			}
+
+			// Fallback for the case where maxFailures is too large for uint32
+			return counts.ConsecutiveFailures >= (1<<32 - 1) // Always compare to the maximum value
 		},
 		OnStateChange: func(name string, from gobreaker.State, to gobreaker.State) {
 			switch to {

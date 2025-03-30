@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/kopexa-grc/notifier"
@@ -50,14 +51,28 @@ type FileProvider struct {
 
 // NewFileProvider creates a new file provider
 func NewFileProvider(name, filePath string) (*FileProvider, error) {
-	file, err := os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	//Safe filename: Fixed directory and only the base name
+	safeFilename := filepath.Base(filePath)
+
+	// Absolute, secure path within the current directory
+	dir, err := os.Getwd()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get current directory: %w", err)
+	}
+
+	// Fixed path constant
+	safeFilePath := filepath.Join(dir, safeFilename)
+
+	// Nutze restriktivere Berechtigungen (0600 statt 0644)
+	// #nosec G304 - We are already using a secure path with filepath.Base and a fixed directory
+	file, err := os.OpenFile(safeFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
 	if err != nil {
 		return nil, err
 	}
 
 	return &FileProvider{
 		name:     name,
-		filePath: filePath,
+		filePath: safeFilePath,
 		file:     file,
 	}, nil
 }
