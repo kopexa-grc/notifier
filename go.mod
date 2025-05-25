@@ -1,14 +1,15 @@
 module github.com/kopexa-grc/notifier
 
 go 1.24.0
+
 require (
 	github.com/centrifugal/centrifuge v0.35.0
 	github.com/rs/zerolog v1.34.0
 	github.com/sony/gobreaker/v2 v2.1.0
 	github.com/stretchr/testify v1.10.0
-	go.opentelemetry.io/otel v1.35.0
-	go.opentelemetry.io/otel/metric v1.35.0
-	go.opentelemetry.io/otel/trace v1.35.0
+	go.opentelemetry.io/otel v1.36.0
+	go.opentelemetry.io/otel/metric v1.36.0
+	go.opentelemetry.io/otel/trace v1.36.0
 	golang.org/x/time v0.11.0
 )
 
