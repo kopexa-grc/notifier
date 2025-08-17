@@ -37,4 +37,4 @@ jobs:
         uses: sonatype-nexus-community/nancy-github-action@main
 
   osvscanner:
-    uses: "google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@v2.0.1"
+    uses: "google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@v2.2.1"
